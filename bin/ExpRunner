@@ -1,0 +1,136 @@
+#!/usr/bin/env python
+
+"""
+This module is for training the model. See Readme.md for more details about training your own model.
+
+Examples:
+    Run local:
+    $ ExpRunner --config=XXX
+
+    Predicting with new config setup:
+    $ ExpRunner --train=False --test=True --lw --config=XXX
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import warnings
+import os
+import importlib
+import argparse
+import pickle as pkl
+from pprint import pprint
+import distutils.util
+from os.path import join
+import os
+
+import nibabel as nib
+import numpy as np
+import torch
+
+from tractseg.libs import data_utils
+from tractseg.libs import direction_merger
+from tractseg.libs import exp_utils
+from tractseg.libs import img_utils
+from tractseg.libs import peak_utils
+from tractseg.libs.system_config import SystemConfig as C
+from tractseg.libs import trainer
+from tractseg.data.data_loader_training import DataLoaderTraining as DataLoaderTraining2D
+from tractseg.data.data_loader_training_3D import DataLoaderTraining as DataLoaderTraining3D
+from tractseg.data.data_loader_inference import DataLoaderInference
+from tractseg.data import dataset_specific_utils
+from tractseg.models.base_model import BaseModel
+from bin.utils_add import compute_dice_score
+
+warnings.simplefilter("ignore", UserWarning)  # hide scipy warnings
+warnings.simplefilter("ignore", FutureWarning)  # hide h5py warnings
+warnings.filterwarnings("ignore", message="numpy.dtype size changed")  # hide Cython benign warning
+warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # hide Cython benign warning
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train a network on your own data to segment white matter bundles.",
+                                        epilog="Written by Jakob Wasserthal. Please reference 'Wasserthal et al. "
+                                               "TractSeg - Fast and accurate white matter tract segmentation. "
+                                               "https://doi.org/10.1016/j.neuroimage.2018.07.070)'")
+    parser.add_argument("--config", metavar="name", help="Name of configuration to use",
+                        default='my_custom_experiment')
+    parser.add_argument("--train", metavar="True/False", help="Train network",
+                        type=distutils.util.strtobool, default=True)
+    parser.add_argument("--test", metavar="True/False", help="Test network",
+                        type=distutils.util.strtobool, default=False)
+    parser.add_argument("--seg", action="store_true", help="Create binary segmentation", default=True)
+    parser.add_argument("--probs", action="store_true", help="Create probmap segmentation")
+    parser.add_argument("--lw", action="store_true", help="Load weights of pretrained net", default=False)
+    parser.add_argument("--only_val", action="store_true", help="only run validation")
+    parser.add_argument("--en", metavar="name", help="Experiment name")
+    parser.add_argument("--fold", metavar="N", help="Which fold to train when doing CrossValidation", type=int)
+    parser.add_argument("--verbose", action="store_true", help="Show more intermediate output", default=True)
+    args = parser.parse_args()
+
+
+    Config = getattr(importlib.import_module("tractseg.experiments.base"), "Config")()
+    if args.config:
+        # Config.__dict__ does not work properly therefore use this approach
+        Config = getattr(importlib.import_module("tractseg.experiments.custom." + args.config), "Config")()
+
+    if args.en:
+        Config.EXP_NAME = args.en
+
+    Config.TRAIN = bool(args.train)
+    Config.TEST = bool(args.test)
+    Config.SEGMENT = args.seg
+    if args.probs:
+        Config.GET_PROBS = TrueConfig
+    if args.lw:
+        Config.LOAD_WEIGHTS = args.lw
+    if args.fold:
+        Config.CV_FOLD = args.fold
+    if args.only_val:
+        Config.ONLY_VAL = True
+    Config.VERBOSE = args.verbose
+
+    Config.MULTI_PARENT_PATH = join(C.EXP_PATH, Config.EXP_MULTI_NAME)
+    Config.EXP_PATH = join(C.EXP_PATH, Config.EXP_MULTI_NAME, Config.EXP_NAME)
+
+    # define the train, test, validate subjects
+    Config.TRAIN_SUBJECTS, Config.VALIDATE_SUBJECTS, Config.TEST_SUBJECTS = dataset_specific_utils.get_cv_fold(Config.CV_FOLD, dataset=Config.DATASET)
+    Config.TRAIN_SUBJECTS = Config.TRAIN_SUBJECTS[0:Training_num]
+
+    # Autoset input dimensions based on settings
+    Config.INPUT_DIM = dataset_specific_utils.get_correct_input_dim(Config)
+    Config = dataset_specific_utils.get_labels_filename(Config)
+
+    if Config.EXPERIMENT_TYPE == "peak_regression":
+        Config.NR_OF_CLASSES = 3*len(dataset_specific_utils.get_bundle_names(Config.CLASSES)[1:])
+    else:
+        Config.NR_OF_CLASSES = len(dataset_specific_utils.get_bundle_names(Config.CLASSES)[1:])
+
+    if Config.TRAIN and not Config.ONLY_VAL:
+        Config.EXP_PATH = exp_utils.create_experiment_folder(Config.EXP_NAME, Config.MULTI_PARENT_PATH, Config.TRAIN)
+
+
+
+    if Config.TRAIN:
+        if Config.VERBOSE:
+            print("Hyperparameters:")
+            exp_utils.print_Configs(Config)
+
+        with open(join(Config.EXP_PATH, "Hyperparameters.txt"), "a") as f:
+            Config_dict = {attr: getattr(Config, attr) for attr in dir(Config)
+                           if not callable(getattr(Config, attr)) and not attr.startswith("__")}
+            pprint(Config_dict, f)
+        if Config.DIM == "2D":
+            data_loader = DataLoaderTraining2D(Config)
+        else:
+            data_loader = DataLoaderTraining3D(Config)
+        print("Training...")
+        model = BaseModel(Config)
+        trainer.train_model(Config, model, data_loader, )
+
+
+if __name__ == '__main__':
+    # define used gpu
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    main()
