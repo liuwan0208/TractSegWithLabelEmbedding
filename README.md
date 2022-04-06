@@ -62,7 +62,7 @@ python run Your_CodePath/TractSegWithLabelEmbedding/bin/ExpRunner
 ```
 export PYTHONPATH=$PYTHONPATH:Your_CodePath/TractSegWithLabelEmbedding
 ```
-* You can `directly test` the network using the provided data in the `example` fold and [network model](https://pan.baidu.com/s/1EjvdWTomN6D3inC7wrSpaw?pwd=5gv3) after modifying the corresponding paths in 'Your_CodePath/TractSegWithLabelEmbedding/bin/`ExpRunner_test.py`':
+* You can `directly test` the network using the provided data in the `example` fold and network model ([link1](https://drive.google.com/file/d/1O-DPM0vBV5Z58Bqt0_dC0kzqeThjSTjV/view?usp=sharing) or [link2](https://pan.baidu.com/s/1EjvdWTomN6D3inC7wrSpaw?pwd=5gv3) after modifying the corresponding paths in 'Your_CodePath/TractSegWithLabelEmbedding/bin/`ExpRunner_test.py`':
 ```
 python run Your_CodePath/TractSegWithLabelEmbedding/bin/ExpRunner_test.py
 ```
