@@ -1,5 +1,5 @@
 ## 1 Paper
-Liu, Wan, Qi Lu, Zhizheng Zhuo, Yuxing Li, Yunyun Duan, Pinnan Yu, Liying Qu, Chuyang Ye, and Yaou Liu. "Volumetric Segmentation of White Matter Tracts with Label Embedding." NeuroImage (2022), 250: 118934.
+Liu, Wan, Qi Lu, Zhizheng Zhuo, Yuxing Li, Yunyun Duan, Pinnan Yu, Liying Qu, Chuyang Ye, and Yaou Liu. "[Volumetric Segmentation of White Matter Tracts with Label Embedding.](https://www.sciencedirect.com/science/article/pii/S1053811922000635)" NeuroImage (2022), 250: 118934.
 
 
 ## 2 Prerequisites
